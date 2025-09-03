@@ -1,0 +1,7 @@
+/vendor/
+.env
+/storage/*.key
+/storage/logs/*.log
+.idea/
+.vscode/
+
