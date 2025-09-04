@@ -23,6 +23,7 @@ return new class extends Migration
 
             $table->string('token')->unique();
             $table->text('notes')->nullable();
+            $table->text('message')->nullable();
             $table->timestamp('confirmed_at')->nullable();
             $table->timestamp('declined_at')->nullable();
 

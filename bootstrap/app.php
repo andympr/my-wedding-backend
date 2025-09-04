@@ -27,8 +27,13 @@ $app->withFacades();
 $app->withEloquent();
 
 $app->configure('database');
+$app->configure('auth');
+
+$app->register(Tymon\JWTAuth\Providers\LumenServiceProvider::class);
 
 $app->routeMiddleware([
+    'auth' => App\Http\Middleware\AdminAuth::class,
+    'guest.token' => App\Http\Middleware\GuestTokenMiddleware::class,
     'cors' => App\Http\Middleware\CorsMiddleware::class,
 ]);
 
@@ -95,9 +100,9 @@ $app->singleton(
 |
 */
 
-// $app->middleware([
-//     App\Http\Middleware\ExampleMiddleware::class
-// ]);
+$app->middleware([
+    App\Http\Middleware\CorsMiddleware::class,
+]);
 
 // $app->routeMiddleware([
 //     'auth' => App\Http\Middleware\Authenticate::class,
@@ -115,7 +120,7 @@ $app->singleton(
 */
 
 // $app->register(App\Providers\AppServiceProvider::class);
-// $app->register(App\Providers\AuthServiceProvider::class);
+$app->register(App\Providers\AuthServiceProvider::class);
 // $app->register(App\Providers\EventServiceProvider::class);
 
 /*

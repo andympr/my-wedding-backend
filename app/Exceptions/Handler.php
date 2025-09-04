@@ -49,6 +49,34 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $exception)
     {
+        // If it's an API call (Accept JSON or /api/*), return JSON errors
+        $wantsJson = $request->expectsJson() || $request->is('api/*');
+        if ($wantsJson) {
+            if ($exception instanceof ValidationException) {
+                return response()->json([
+                    'message' => 'Hay errores de validación',
+                    'errors'  => $exception->errors(),
+                ], 422);
+            }
+
+            $status = 500;
+            $message = 'Internal Server Error';
+            if ($exception instanceof HttpException) {
+                $status = $exception->getStatusCode();
+                $message = $exception->getMessage() ?: $message;
+            } elseif ($exception instanceof ModelNotFoundException) {
+                $status = 404;
+                $message = 'Recurso no encontrado';
+            } else {
+                $msg = $exception->getMessage();
+                if (!empty($msg)) $message = $msg;
+            }
+
+            return response()->json([
+                'message' => $message,
+            ], $status);
+        }
+
         return parent::render($request, $exception);
     }
 }

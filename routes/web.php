@@ -16,3 +16,40 @@
 $router->get('/', function () use ($router) {
     return $router->app->version();
 });
+
+$router->group(['prefix' => 'api', 'middleware' => 'cors'], function () use ($router) {
+
+    // Auth endpoints
+    $router->post('auth/login', 'AuthController@login');
+    $router->group(['middleware' => ['auth:admin,editor']], function () use ($router) {
+        $router->get('auth/me', 'AuthController@me');
+        $router->post('auth/logout', 'AuthController@logout');
+        $router->post('auth/refresh', 'AuthController@refresh');
+    });
+
+    $router->group(['middleware' => 'guest.token'], function () use ($router) {
+        $router->get('/guests/{token}', 'GuestController@showByToken');
+        $router->patch('/guests/{token}', 'GuestController@updateByToken');
+        $router->get('/rsvp/{token}', 'RsvpController@showByToken');
+        $router->patch('/rsvp/{token}', 'RsvpController@updateByToken');
+        $router->get('guests/{token}/details',             'RsvpController@details');
+        $router->post('guests/{token}/confirm',            'RsvpController@confirm');
+        $router->patch('guests/{token}/email',             'RsvpController@updateEmail');
+    });
+
+    // Admin endpoints protected by JWT
+    $router->group(['prefix' => 'admin', 'middleware' => ['auth:admin,editor']], function () use ($router) {
+        // Guests CRUD
+        $router->get('guests',          'GuestController@index');
+        $router->post('guests',         'GuestController@store');
+        $router->get('guests/{id}',     'GuestController@show');
+        $router->patch('guests/{id}',   'GuestController@update');
+        $router->delete('guests/{id}',  'GuestController@destroy');
+        $router->get('guests/{id}/logs','GuestController@logs');
+
+        // Companion management
+        $router->get('guests/{guestId}/companion',    'CompanionController@show');
+        $router->post('guests/{guestId}/companion',   'CompanionController@upsert');
+        $router->delete('guests/{guestId}/companion', 'CompanionController@destroy');
+    });
+});
