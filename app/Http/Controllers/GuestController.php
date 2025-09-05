@@ -238,7 +238,7 @@ class GuestController extends Controller
     {
         $guest = $request->get('guest');
 
-        $request->validate(GuestUpdateByTokenRequest::rules());
+        $this->validate($request, GuestUpdateByTokenRequest::rules());
 
         $data = $request->only(['confirm', 'companion']);
 
