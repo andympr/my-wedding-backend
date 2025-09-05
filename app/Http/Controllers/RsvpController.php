@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Requests\RsvpConfirmRequest;
 use App\Http\Requests\RsvpUpdateEmailRequest;
 use App\Http\Requests\RsvpUpdateByTokenRequest;
+use Carbon\Carbon;
 
 class RsvpController extends Controller
 {
@@ -52,10 +53,10 @@ class RsvpController extends Controller
 
         $guest->confirm = $status;
         if ($status === 'yes') {
-            $guest->confirmed_at = now();
+            $guest->confirmed_at = Carbon::now();
             $guest->declined_at = null;
         } else {
-            $guest->declined_at = now();
+            $guest->declined_at = Carbon::now();
             $guest->confirmed_at = null;
         }
         $guest->save();
