@@ -17,7 +17,7 @@ $router->get('/', function () use ($router) {
     return $router->app->version();
 });
 
-$router->group(['prefix' => 'api', 'middleware' => 'cors'], function () use ($router) {
+$router->group(['middleware' => 'cors'], function () use ($router) {
 
     // Auth endpoints
     $router->post('auth/login', 'AuthController@login');
