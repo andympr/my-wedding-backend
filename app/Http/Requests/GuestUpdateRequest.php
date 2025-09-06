@@ -14,6 +14,7 @@ class GuestUpdateRequest
             'enable_companion' => 'sometimes|boolean',
             'confirm' => 'sometimes|in:pending,yes,no',
             'notes' => 'sometimes|nullable|string',
+            'message' => 'sometimes|nullable|string',
             'companion' => 'sometimes|array',
             'companion.name' => 'sometimes|nullable|string|max:255',
             'companion.lastname' => 'sometimes|nullable|string|max:255',

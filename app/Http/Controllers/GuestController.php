@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use App\Http\Requests\GuestStoreRequest;
 use App\Http\Requests\GuestUpdateRequest;
 use App\Http\Requests\GuestUpdateByTokenRequest;
+use Carbon\Carbon;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class GuestController extends Controller
 {
@@ -106,7 +109,7 @@ class GuestController extends Controller
                 'action'   => 'create',
                 'field'    => null,
                 'old_value'=> null,
-                'new_value'=> json_encode($guest->toArray(), JSON_UNESCAPED_UNICODE),
+                'new_value'=> $this->toAuditJson($guest->toArray()),
                 'source'   => 'admin',
             ]);
 
@@ -150,7 +153,7 @@ class GuestController extends Controller
                     'guest_id'  => $guest->id,
                     'action'    => 'delete',
                     'field'     => 'companion',
-                    'old_value' => json_encode($oldC, JSON_UNESCAPED_UNICODE),
+                    'old_value' => $this->toAuditJson($oldC),
                     'source'    => 'admin',
                 ]);
             } elseif ($enable && is_array($companionPayload)) {
@@ -168,8 +171,8 @@ class GuestController extends Controller
                             'guest_id'  => $guest->id,
                             'action'    => 'update',
                             'field'     => 'companion',
-                            'old_value' => json_encode($oldC, JSON_UNESCAPED_UNICODE),
-                            'new_value' => json_encode($guest->companion->toArray(), JSON_UNESCAPED_UNICODE),
+                            'old_value' => $this->toAuditJson($oldC),
+                            'new_value' => $this->toAuditJson($guest->companion->toArray()),
                             'source'    => 'admin',
                         ]);
                     } else {
@@ -178,7 +181,7 @@ class GuestController extends Controller
                             'guest_id'  => $guest->id,
                             'action'    => 'create',
                             'field'     => 'companion',
-                            'new_value' => json_encode($created->toArray(), JSON_UNESCAPED_UNICODE),
+                            'new_value' => $this->toAuditJson($created->toArray()),
                             'source'    => 'admin',
                         ]);
                     }
@@ -189,8 +192,8 @@ class GuestController extends Controller
                 'guest_id' => $guest->id,
                 'action'   => 'update',
                 'field'    => null,
-                'old_value'=> json_encode($old, JSON_UNESCAPED_UNICODE),
-                'new_value'=> json_encode($guest->toArray(), JSON_UNESCAPED_UNICODE),
+                'old_value'=> $this->toAuditJson($old),
+                'new_value'=> $this->toAuditJson($guest->toArray()),
                 'source'   => 'admin',
             ]);
 
@@ -228,6 +231,99 @@ class GuestController extends Controller
         return response()->json($logs);
     }
 
+    /**
+     * Export filtered guests as Excel (.xlsx)
+     */
+    public function export(Request $request)
+    {
+        // Build the same base query and filters as index()
+        $q         = $request->input('q');
+        $confirm   = $request->input('confirm'); // pending|yes|no
+        $companion = $request->input('companion'); // enabled|disabled
+        $sort      = $request->input('sort', 'lastname');
+        $order     = strtolower($request->input('order', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        $query = Guest::with('companion');
+
+        if ($q) {
+            $query->where(function ($qb) use ($q) {
+                $qb->where('name', 'LIKE', "%$q%")
+                   ->orWhere('lastname', 'LIKE', "%$q%")
+                   ->orWhere('email', 'LIKE', "%$q%")
+                   ->orWhere('phone', 'LIKE', "%$q%");
+            });
+        }
+
+        if (in_array($confirm, ['pending', 'yes', 'no'], true)) {
+            $query->where('confirm', $confirm);
+        }
+
+        if ($companion === 'enabled') {
+            $query->where('enable_companion', true);
+        } elseif ($companion === 'disabled') {
+            $query->where('enable_companion', false);
+        }
+
+        $sortable = ['name', 'lastname', 'email', 'confirm', 'created_at'];
+        if (!in_array($sort, $sortable, true)) {
+            $sort = 'lastname';
+        }
+        $query->orderBy($sort, $order);
+
+        $filename = 'guests-' . date('Ymd-His') . '.xlsx';
+
+        $headers = [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        ];
+
+        $callback = function () use ($query) {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            // Header row
+            $sheet->fromArray([
+                ['Nombre', 'Apellido', 'Email', 'Teléfono', 'Permite Acompañante', 'Confirmación', 'Acompañante Nombre', 'Acompañante Apellido', 'Notas', 'Mensaje', 'Creado', 'Confirmado', 'Rechazado', 'Token']
+            ], null, 'A1');
+
+            $row = 2;
+            // Load in chunks to avoid memory spikes
+            $query->chunk(500, function ($rows) use (&$row, $sheet) {
+                foreach ($rows as $g) {
+                    $sheet->fromArray([
+                        [
+                            $g->name,
+                            $g->lastname,
+                            $g->email,
+                            $g->phone,
+                            $g->enable_companion ? 'Sí' : 'No',
+                            $g->confirm,
+                            optional($g->companion)->name,
+                            optional($g->companion)->lastname,
+                            $g->notes,
+                            $g->message,
+                            optional($g->created_at)->toDateTimeString(),
+                            optional($g->confirmed_at)->toDateTimeString(),
+                            optional($g->declined_at)->toDateTimeString(),
+                            $g->token,
+                        ]
+                    ], null, 'A' . $row);
+                    $row++;
+                }
+            });
+
+            // Autosize columns A-N
+            foreach (range('A', 'N') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function showByToken($token, Request $request)
     {
         $guest = $request->get('guest');
@@ -240,20 +336,138 @@ class GuestController extends Controller
 
         $this->validate($request, GuestUpdateByTokenRequest::rules());
 
-        $data = $request->only(['confirm', 'companion']);
+        $data = $request->only(['confirm', 'companion', 'email', 'phone', 'message', 'notes']);
 
+        // Old values for audit
+        $oldEmail   = $guest->email;
+        $oldPhone   = $guest->phone;
+        $oldMessage = $guest->message;
+        $oldNotes   = $guest->notes;
+        $oldCompanion = $guest->companion ? $guest->companion->toArray() : null;
+
+        // Contact info
+        if (array_key_exists('email', $data)) {
+            $guest->email = $data['email'] === '' ? null : $data['email'];
+        }
+        if (array_key_exists('phone', $data)) {
+            $guest->phone = $data['phone'] === '' ? null : $data['phone'];
+        }
+
+        // Normalize and assign optional text fields
+        if (array_key_exists('message', $data) && $data['message'] === '') {
+            $data['message'] = null;
+        }
+        if (array_key_exists('notes', $data) && $data['notes'] === '') {
+            $data['notes'] = null;
+        }
+        if (array_key_exists('message', $data)) {
+            $guest->message = $data['message'];
+        }
+        if (array_key_exists('notes', $data)) {
+            $guest->notes = $data['notes'];
+        }
+
+        // Confirm and timestamps
         if (isset($data['confirm'])) {
+            $old = $guest->confirm;
             $guest->confirm = $data['confirm'];
+            if ($guest->confirm === 'yes') {
+                $guest->confirmed_at = Carbon::now();
+                $guest->declined_at = null;
+            } elseif ($guest->confirm === 'no') {
+                $guest->declined_at = Carbon::now();
+                $guest->confirmed_at = null;
+            }
         }
 
         $guest->save();
 
+        // Companion: update/create only if there are real changes
         if (isset($data['companion']) && $guest->enable_companion) {
+            $incoming = [
+                'name' => isset($data['companion']['name']) && $data['companion']['name'] !== '' ? $data['companion']['name'] : null,
+                'lastname' => isset($data['companion']['lastname']) && $data['companion']['lastname'] !== '' ? $data['companion']['lastname'] : null,
+            ];
+            $newValues = array_filter($incoming, fn($v) => !is_null($v));
+            $currentValues = $guest->companion ? array_filter($guest->companion->only(['name','lastname']), fn($v) => !is_null($v)) : [];
+
             if ($guest->companion) {
-                $guest->companion->update($data['companion']);
+                if (json_encode($newValues) !== json_encode($currentValues)) {
+                    $guest->companion->update($newValues);
+                    $this->audit([
+                        'guest_id'  => $guest->id,
+                        'action'    => 'update',
+                        'field'     => 'companion',
+                        'old_value' => $oldCompanion ? $this->toAuditJson($oldCompanion) : null,
+                        'new_value' => $this->toAuditJson($guest->companion->toArray()),
+                        'source'    => 'frontend',
+                    ]);
+                }
             } else {
-                $guest->companion()->create($data['companion']);
+                if (!empty($newValues)) {
+                    $created = $guest->companion()->create($newValues);
+                    $this->audit([
+                        'guest_id'  => $guest->id,
+                        'action'    => 'create',
+                        'field'     => 'companion',
+                        'old_value' => null,
+                        'new_value' => $this->toAuditJson($created->toArray()),
+                        'source'    => 'frontend',
+                    ]);
+                }
             }
+        }
+
+        // Audits for simple fields
+        if (isset($data['confirm']) && $old !== $guest->confirm) {
+            $this->audit([
+                'guest_id'  => $guest->id,
+                'action'    => $guest->confirm === 'yes' ? 'confirm' : 'decline',
+                'field'     => 'confirm',
+                'old_value' => $old ?? null,
+                'new_value' => $guest->confirm,
+                'source'    => 'frontend',
+            ]);
+        }
+        if ($oldEmail !== $guest->email) {
+            $this->audit([
+                'guest_id'  => $guest->id,
+                'action'    => 'update',
+                'field'     => 'email',
+                'old_value' => $oldEmail ?? '',
+                'new_value' => $guest->email ?? '',
+                'source'    => 'frontend',
+            ]);
+        }
+        if ($oldPhone !== $guest->phone) {
+            $this->audit([
+                'guest_id'  => $guest->id,
+                'action'    => 'update',
+                'field'     => 'phone',
+                'old_value' => $oldPhone ?? '',
+                'new_value' => $guest->phone ?? '',
+                'source'    => 'frontend',
+            ]);
+        }
+        if ($oldMessage !== $guest->message) {
+            $this->audit([
+                'guest_id'  => $guest->id,
+                'action'    => 'update',
+                'field'     => 'message',
+                'old_value' => $oldMessage ?? '',
+                'new_value' => $guest->message ?? '',
+                'source'    => 'frontend',
+            ]);
+        }
+        if ($oldNotes !== $guest->notes) {
+            $this->audit([
+                'guest_id'  => $guest->id,
+                'action'    => 'update',
+                'field'     => 'notes',
+                'old_value' => $oldNotes ?? '',
+                'new_value' => $guest->notes ?? '',
+                'source'    => 'frontend',
+            ]);
         }
 
         return response()->json($guest->load('companion'));

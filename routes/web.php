@@ -33,14 +33,13 @@ $router->group(['middleware' => 'cors'], function () use ($router) {
         $router->get('/rsvp/{token}', 'RsvpController@showByToken');
         $router->patch('/rsvp/{token}', 'RsvpController@updateByToken');
         $router->get('guests/{token}/details',             'RsvpController@details');
-        $router->post('guests/{token}/confirm',            'RsvpController@confirm');
-        $router->patch('guests/{token}/email',             'RsvpController@updateEmail');
     });
 
     // Admin endpoints protected by JWT
     $router->group(['prefix' => 'admin', 'middleware' => ['auth:admin,editor']], function () use ($router) {
         // Guests CRUD
         $router->get('guests',          'GuestController@index');
+        $router->get('guests/export',   'GuestController@export');
         $router->post('guests',         'GuestController@store');
         $router->get('guests/{id}',     'GuestController@show');
         $router->patch('guests/{id}',   'GuestController@update');

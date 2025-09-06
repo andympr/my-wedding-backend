@@ -13,6 +13,7 @@ class GuestStoreRequest
             'phone' => 'nullable|string|max:30',
             'enable_companion' => 'boolean',
             'notes' => 'nullable|string',
+            'message' => 'nullable|string',
             'companion' => 'sometimes|array',
             'companion.name' => 'sometimes|nullable|string|max:255',
             'companion.lastname' => 'sometimes|nullable|string|max:255',
