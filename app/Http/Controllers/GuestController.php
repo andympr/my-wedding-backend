@@ -69,9 +69,9 @@ class GuestController extends Controller
         try {
             $this->validate($request, GuestStoreRequest::rules());
 
-            $payload = $request->only(['name','lastname','email','phone','enable_companion','notes']);
+            $payload = $request->only(['name','lastname','email','phone','enable_companion','notes','location']);
             // Normalize empty strings to null for nullable fields
-            foreach (['lastname','email','phone','notes'] as $k) {
+            foreach (['lastname','email','phone','notes','location'] as $k) {
                 if (array_key_exists($k, $payload) && $payload[$k] === '') {
                     $payload[$k] = null;
                 }
@@ -134,9 +134,9 @@ class GuestController extends Controller
             $this->validate($request, GuestUpdateRequest::rules());
 
             $updateData = $request->only([
-                'name','lastname','email','phone','enable_companion','confirm','notes'
+                'name','lastname','email','phone','enable_companion','confirm','notes','location'
             ]);
-            foreach (['lastname','email','phone','notes'] as $k) {
+            foreach (['lastname','email','phone','notes','location'] as $k) {
                 if (array_key_exists($k, $updateData) && $updateData[$k] === '') {
                     $updateData[$k] = null;
                 }
@@ -283,7 +283,7 @@ class GuestController extends Controller
             $sheet = $spreadsheet->getActiveSheet();
             // Header row
             $sheet->fromArray([
-                ['Nombre', 'Apellido', 'Email', 'Teléfono', 'Permite Acompañante', 'Confirmación', 'Acompañante Nombre', 'Acompañante Apellido', 'Notas', 'Mensaje', 'Creado', 'Confirmado', 'Rechazado', 'Token']
+                ['Nombre', 'Apellido', 'Email', 'Teléfono', 'Permite Acompañante', 'Confirmación', 'Acompañante Nombre', 'Acompañante Apellido', 'Mesa/Ubicación', 'Notas', 'Mensaje', 'Creado', 'Confirmado', 'Rechazado', 'Token']
             ], null, 'A1');
 
             $row = 2;
@@ -300,6 +300,7 @@ class GuestController extends Controller
                             $g->confirm,
                             optional($g->companion)->name,
                             optional($g->companion)->lastname,
+                            $g->location,
                             $g->notes,
                             $g->message,
                             optional($g->created_at)->toDateTimeString(),

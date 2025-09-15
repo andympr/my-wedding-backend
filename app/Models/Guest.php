@@ -23,6 +23,7 @@ class Guest extends Model
         'token',
         'notes',
         'message',
+        'location',
         'confirmed_at',
         'declined_at',
     ];
