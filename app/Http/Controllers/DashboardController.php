@@ -16,7 +16,7 @@ class DashboardController extends Controller
         $totalGuests = $guests->count();
         $totalCompanionsEnabled = $guests->where('enable_companion', true)->count();
         $totalCompanionsWithData = $guests->whereNotNull('companion')->count();
-        $totalAttendees = $totalGuests + $totalCompanionsWithData;
+        $totalAttendees = $totalGuests + $totalCompanionsEnabled;
 
         // Indicator 2: Pending confirmations
         $guestsPending = $guests->where('confirm', 'pending');
@@ -24,7 +24,7 @@ class DashboardController extends Controller
         $companionsPending = $guestsPending->where('enable_companion', true);
         $companionsWithDataPending = $companionsPending->whereNotNull('companion')->count();
         $companionsWithoutDataPending = $companionsPending->whereNull('companion')->count();
-        $totalAttendeesPending = $totalGuestsPending + $companionsWithDataPending;
+        $totalAttendeesPending = $totalGuestsPending + $companionsPending->count();
 
         // Indicator 3: Confirmed attendees
         $guestsConfirmed = $guests->where('confirm', 'yes');
@@ -32,24 +32,30 @@ class DashboardController extends Controller
         $companionsConfirmed = $guestsConfirmed->whereNotNull('companion')->count();
         $totalAttendeesConfirmed = $totalGuestsConfirmed + $companionsConfirmed;
 
-        // Indicator 4: Invitations status
+        // Indicator 4: Rejected attendees
+        $guestsRejected = $guests->where('confirm', 'no');
+        $totalGuestsRejected = $guestsRejected->count();
+        $companionsRejected = $guestsRejected->where('enable_companion', true)->count();
+        $totalAttendeesRejected = $totalGuestsRejected + $companionsRejected;
+
+        // Indicator 5: Invitations status
         $totalInvitations = $totalGuests;
         $invitationsSent = $guests->where('invitation_sent', true)->count();
         $invitationsPending = $totalInvitations - $invitationsSent;
 
-        // Indicator 5: Table assignments
+        // Indicator 6: Table assignments
         $guestsWithTable = $guests->filter(function ($guest) {
             return !is_null($guest->location) && $guest->location !== '';
         });
         $totalGuestsWithTable = $guestsWithTable->count();
-        $companionsWithTable = $guestsWithTable->whereNotNull('companion')->count();
+        $companionsWithTable = $guestsWithTable->where('enable_companion', true)->count();
         $totalAttendeesWithTable = $totalGuestsWithTable + $companionsWithTable;
 
         $guestsWithoutTable = $guests->filter(function ($guest) {
             return is_null($guest->location) || $guest->location === '';
         });
         $totalGuestsWithoutTable = $guestsWithoutTable->count();
-        $companionsWithoutTable = $guestsWithoutTable->whereNotNull('companion')->count();
+        $companionsWithoutTable = $guestsWithoutTable->where('enable_companion', true)->count();
         $totalAttendeesWithoutTable = $totalGuestsWithoutTable + $companionsWithoutTable;
 
         return response()->json([
@@ -57,7 +63,7 @@ class DashboardController extends Controller
                 'name' => 'Total de Asistentes',
                 'total_attendees' => $totalAttendees,
                 'total_guests' => $totalGuests,
-                'total_companions' => $totalCompanionsWithData,
+                'total_companions' => $totalCompanionsEnabled,
             ],
             'indicator2' => [
                 'name' => 'Por Confirmar',
@@ -73,12 +79,18 @@ class DashboardController extends Controller
                 'total_companions_confirmed' => $companionsConfirmed,
             ],
             'indicator4' => [
+                'name' => 'Rechazados',
+                'total_attendees_rejected' => $totalAttendeesRejected,
+                'total_guests_rejected' => $totalGuestsRejected,
+                'total_companions_rejected' => $companionsRejected,
+            ],
+            'indicator5' => [
                 'name' => 'Invitaciones',
                 'total_invitations' => $totalInvitations,
                 'invitations_pending' => $invitationsPending,
                 'invitations_sent' => $invitationsSent,
             ],
-            'indicator5' => [
+            'indicator6' => [
                 'name' => 'Asignación de Mesas',
                 'total_attendees_with_table' => $totalAttendeesWithTable,
                 'total_attendees_without_table' => $totalAttendeesWithoutTable,
