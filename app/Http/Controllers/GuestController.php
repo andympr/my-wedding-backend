@@ -16,12 +16,13 @@ class GuestController extends Controller
 {
     public function index(Request $request)
     {
-        $q          = $request->input('q');
-        $confirm    = $request->input('confirm'); // pending|yes|no
-        $companion  = $request->input('companion'); // enabled|disabled
-        $sort       = $request->input('sort', 'lastname');
-        $order      = strtolower($request->input('order', 'asc')) === 'desc' ? 'desc' : 'asc';
-        $perPage    = (int) $request->input('per_page', 10);
+        $q             = $request->input('q');
+        $confirm       = $request->input('confirm'); // pending|yes|no
+        $companion     = $request->input('companion'); // enabled|disabled
+        $invitationSent = $request->input('invitation_sent'); // sent|not_sent
+        $sort          = $request->input('sort', 'lastname');
+        $order         = strtolower($request->input('order', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $perPage       = (int) $request->input('per_page', 10);
 
         $query = Guest::with('companion');
 
@@ -30,7 +31,11 @@ class GuestController extends Controller
                 $qb->where('name', 'LIKE', "%$q%")
                    ->orWhere('lastname', 'LIKE', "%$q%")
                    ->orWhere('email', 'LIKE', "%$q%")
-                   ->orWhere('phone', 'LIKE', "%$q%");
+                   ->orWhere('phone', 'LIKE', "%$q%")
+                   ->orWhereHas('companion', function ($companionQuery) use ($q) {
+                       $companionQuery->where('name', 'LIKE', "%$q%")
+                                    ->orWhere('lastname', 'LIKE', "%$q%");
+                   });
             });
         }
 
@@ -42,6 +47,12 @@ class GuestController extends Controller
             $query->where('enable_companion', true);
         } elseif ($companion === 'disabled') {
             $query->where('enable_companion', false);
+        }
+
+        if ($invitationSent === 'sent') {
+            $query->where('invitation_sent', true);
+        } elseif ($invitationSent === 'not_sent') {
+            $query->where('invitation_sent', false);
         }
 
         $sortable = ['name', 'lastname', 'email', 'confirm', 'created_at'];
@@ -69,7 +80,7 @@ class GuestController extends Controller
         try {
             $this->validate($request, GuestStoreRequest::rules());
 
-            $payload = $request->only(['name','lastname','email','phone','enable_companion','notes','location']);
+            $payload = $request->only(['name','lastname','email','phone','enable_companion','notes','location','invitation_sent']);
             // Normalize empty strings to null for nullable fields
             foreach (['lastname','email','phone','notes','location'] as $k) {
                 if (array_key_exists($k, $payload) && $payload[$k] === '') {
@@ -78,6 +89,7 @@ class GuestController extends Controller
             }
             // Safe defaults
             $payload['enable_companion'] = (bool)($payload['enable_companion'] ?? false);
+            $payload['invitation_sent'] = (bool)($payload['invitation_sent'] ?? false);
             $payload['confirm'] = 'pending';
 
             $guest = Guest::create($payload);
@@ -134,7 +146,7 @@ class GuestController extends Controller
             $this->validate($request, GuestUpdateRequest::rules());
 
             $updateData = $request->only([
-                'name','lastname','email','phone','enable_companion','confirm','notes','location'
+                'name','lastname','email','phone','enable_companion','confirm','notes','location','invitation_sent'
             ]);
             foreach (['lastname','email','phone','notes','location'] as $k) {
                 if (array_key_exists($k, $updateData) && $updateData[$k] === '') {
@@ -237,11 +249,12 @@ class GuestController extends Controller
     public function export(Request $request)
     {
         // Build the same base query and filters as index()
-        $q         = $request->input('q');
-        $confirm   = $request->input('confirm'); // pending|yes|no
-        $companion = $request->input('companion'); // enabled|disabled
-        $sort      = $request->input('sort', 'lastname');
-        $order     = strtolower($request->input('order', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $q             = $request->input('q');
+        $confirm       = $request->input('confirm'); // pending|yes|no
+        $companion     = $request->input('companion'); // enabled|disabled
+        $invitationSent = $request->input('invitation_sent'); // sent|not_sent
+        $sort          = $request->input('sort', 'lastname');
+        $order         = strtolower($request->input('order', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         $query = Guest::with('companion');
 
@@ -250,7 +263,11 @@ class GuestController extends Controller
                 $qb->where('name', 'LIKE', "%$q%")
                    ->orWhere('lastname', 'LIKE', "%$q%")
                    ->orWhere('email', 'LIKE', "%$q%")
-                   ->orWhere('phone', 'LIKE', "%$q%");
+                   ->orWhere('phone', 'LIKE', "%$q%")
+                   ->orWhereHas('companion', function ($companionQuery) use ($q) {
+                       $companionQuery->where('name', 'LIKE', "%$q%")
+                                    ->orWhere('lastname', 'LIKE', "%$q%");
+                   });
             });
         }
 
@@ -262,6 +279,12 @@ class GuestController extends Controller
             $query->where('enable_companion', true);
         } elseif ($companion === 'disabled') {
             $query->where('enable_companion', false);
+        }
+
+        if ($invitationSent === 'sent') {
+            $query->where('invitation_sent', true);
+        } elseif ($invitationSent === 'not_sent') {
+            $query->where('invitation_sent', false);
         }
 
         $sortable = ['name', 'lastname', 'email', 'confirm', 'created_at'];
@@ -283,7 +306,7 @@ class GuestController extends Controller
             $sheet = $spreadsheet->getActiveSheet();
             // Header row
             $sheet->fromArray([
-                ['Nombre', 'Apellido', 'Email', 'Teléfono', 'Permite Acompañante', 'Confirmación', 'Acompañante Nombre', 'Acompañante Apellido', 'Mesa/Ubicación', 'Notas', 'Mensaje', 'Creado', 'Confirmado', 'Rechazado', 'Token']
+                ['Nombre', 'Apellido', 'Email', 'Teléfono', 'Permite Acompañante', 'Invitación Enviada', 'Confirmación', 'Acompañante Nombre', 'Acompañante Apellido', 'Mesa/Ubicación', 'Notas', 'Mensaje', 'Token', 'Creado', 'Actualizado', 'Confirmado', 'Rechazado']
             ], null, 'A1');
 
             $row = 2;
@@ -297,24 +320,26 @@ class GuestController extends Controller
                             $g->email,
                             $g->phone,
                             $g->enable_companion ? 'Sí' : 'No',
+                            $g->invitation_sent ? 'Sí' : 'No',
                             $g->confirm,
                             optional($g->companion)->name,
                             optional($g->companion)->lastname,
                             $g->location,
                             $g->notes,
                             $g->message,
+                            $g->token,
                             optional($g->created_at)->toDateTimeString(),
+                            optional($g->updated_at)->toDateTimeString(),
                             optional($g->confirmed_at)->toDateTimeString(),
                             optional($g->declined_at)->toDateTimeString(),
-                            $g->token,
                         ]
                     ], null, 'A' . $row);
                     $row++;
                 }
             });
 
-            // Autosize columns A-N
-            foreach (range('A', 'N') as $col) {
+            // Autosize columns A-Q
+            foreach (range('A', 'Q') as $col) {
                 $sheet->getColumnDimension($col)->setAutoSize(true);
             }
 

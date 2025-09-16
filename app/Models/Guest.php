@@ -24,12 +24,14 @@ class Guest extends Model
         'notes',
         'message',
         'location',
+        'invitation_sent',
         'confirmed_at',
         'declined_at',
     ];
 
     protected $casts = [
         'enable_companion' => 'boolean',
+        'invitation_sent'  => 'boolean',
         'confirmed_at'     => 'datetime',
         'declined_at'      => 'datetime',
     ];

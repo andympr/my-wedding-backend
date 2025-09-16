@@ -21,10 +21,10 @@ $router->group(['middleware' => 'cors'], function () use ($router) {
 
     // Auth endpoints
     $router->post('auth/login', 'AuthController@login');
+    $router->post('auth/refresh', 'AuthController@refresh');
     $router->group(['middleware' => ['auth:admin,editor']], function () use ($router) {
         $router->get('auth/me', 'AuthController@me');
         $router->post('auth/logout', 'AuthController@logout');
-        $router->post('auth/refresh', 'AuthController@refresh');
     });
 
     $router->group(['middleware' => 'guest.token'], function () use ($router) {

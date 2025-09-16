@@ -12,6 +12,7 @@ class GuestStoreRequest
             'email' => 'nullable|email',
             'phone' => 'nullable|string|max:30',
             'enable_companion' => 'boolean',
+            'invitation_sent' => 'boolean',
             'notes' => 'nullable|string',
             'message' => 'nullable|string',
             'companion' => 'sometimes|array',

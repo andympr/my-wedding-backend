@@ -12,6 +12,7 @@ class GuestUpdateRequest
             'email' => 'sometimes|nullable|email',
             'phone' => 'sometimes|nullable|string|max:30',
             'enable_companion' => 'sometimes|boolean',
+            'invitation_sent' => 'sometimes|boolean',
             'confirm' => 'sometimes|in:pending,yes,no',
             'notes' => 'sometimes|nullable|string',
             'message' => 'sometimes|nullable|string',
