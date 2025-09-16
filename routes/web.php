@@ -37,6 +37,9 @@ $router->group(['middleware' => 'cors'], function () use ($router) {
 
     // Admin endpoints protected by JWT
     $router->group(['prefix' => 'admin', 'middleware' => ['auth:admin,editor']], function () use ($router) {
+        // Dashboard statistics
+        $router->get('dashboard/stats', 'DashboardController@statistics');
+        
         // Guests CRUD
         $router->get('guests',          'GuestController@index');
         $router->get('guests/export',   'GuestController@export');
