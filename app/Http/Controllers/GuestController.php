@@ -60,7 +60,10 @@ class GuestController extends Controller
             $sort = 'lastname';
         }
 
-        $query->orderBy($sort, $order);
+        // Order by location (mesa) first, then by lastname, then by name
+        $query->orderBy('location', 'asc')
+              ->orderBy('name', 'asc')
+              ->orderBy('lastname', 'asc');
 
         $paginator = $query->paginate($perPage)->appends($request->query());
 
@@ -291,7 +294,11 @@ class GuestController extends Controller
         if (!in_array($sort, $sortable, true)) {
             $sort = 'lastname';
         }
-        $query->orderBy($sort, $order);
+        
+        // Order by location (mesa) first, then by lastname, then by name
+        $query->orderBy('location', 'asc')
+              ->orderBy('name', 'asc')
+              ->orderBy('lastname', 'asc');
 
         $filename = 'guests-' . date('Ymd-His') . '.xlsx';
 
