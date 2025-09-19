@@ -53,5 +53,17 @@ $router->group(['middleware' => 'cors'], function () use ($router) {
         $router->get('guests/{guestId}/companion',    'CompanionController@show');
         $router->post('guests/{guestId}/companion',   'CompanionController@upsert');
         $router->delete('guests/{guestId}/companion', 'CompanionController@destroy');
+        
+        // Event Tables CRUD
+        $router->get('event-tables',                    'EventTableController@index');
+        $router->post('event-tables',                   'EventTableController@store');  
+        $router->get('event-tables/{id}',               'EventTableController@show');
+        $router->patch('event-tables/{id}',             'EventTableController@update');
+        $router->delete('event-tables/{id}',            'EventTableController@destroy');
+        
+        // Event Table assignments
+        $router->post('event-tables/{id}/assign',       'EventTableController@assignGuests');
+        $router->post('event-tables/unassign',          'EventTableController@unassignGuests');
+        $router->get('event-tables/unassigned/guests',  'EventTableController@unassignedGuests');
     });
 });

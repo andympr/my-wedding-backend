@@ -23,7 +23,7 @@ class Guest extends Model
         'token',
         'notes',
         'message',
-        'location',
+        'event_table_id',
         'invitation_sent',
         'confirmed_at',
         'declined_at',
@@ -55,5 +55,11 @@ class Guest extends Model
     public function auditLogs()
     {
         return $this->hasMany(AuditLog::class);
+    }
+
+    // Relación con tabla
+    public function eventTable()
+    {
+        return $this->belongsTo(EventTable::class, 'event_table_id');
     }
 }

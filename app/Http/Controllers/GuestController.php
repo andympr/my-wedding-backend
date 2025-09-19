@@ -60,10 +60,13 @@ class GuestController extends Controller
             $sort = 'lastname';
         }
 
-        // Order by location (mesa) first, then by lastname, then by name
-        $query->orderBy('location', 'asc')
-              ->orderBy('name', 'asc')
-              ->orderBy('lastname', 'asc');
+        // Order by event table, then by lastname, then by name
+        $query->with('eventTable')
+              ->leftJoin('event_tables', 'guests.event_table_id', '=', 'event_tables.id')
+              ->orderBy('event_tables.name', 'asc')
+              ->orderBy('guests.name', 'asc')
+              ->orderBy('guests.lastname', 'asc')
+              ->select('guests.*');
 
         $paginator = $query->paginate($perPage)->appends($request->query());
 
@@ -83,9 +86,9 @@ class GuestController extends Controller
         try {
             $this->validate($request, GuestStoreRequest::rules());
 
-            $payload = $request->only(['name','lastname','email','phone','enable_companion','notes','location','invitation_sent']);
+            $payload = $request->only(['name','lastname','email','phone','enable_companion','notes','invitation_sent']);
             // Normalize empty strings to null for nullable fields
-            foreach (['lastname','email','phone','notes','location'] as $k) {
+            foreach (['lastname','email','phone','notes'] as $k) {
                 if (array_key_exists($k, $payload) && $payload[$k] === '') {
                     $payload[$k] = null;
                 }
@@ -136,7 +139,7 @@ class GuestController extends Controller
 
     public function show($id)
     {
-        $guest = Guest::with('companion')->findOrFail($id);
+        $guest = Guest::with(['companion', 'eventTable'])->findOrFail($id);
         return response()->json($guest);
     }
 
@@ -149,9 +152,9 @@ class GuestController extends Controller
             $this->validate($request, GuestUpdateRequest::rules());
 
             $updateData = $request->only([
-                'name','lastname','email','phone','enable_companion','confirm','notes','location','invitation_sent'
+                'name','lastname','email','phone','enable_companion','confirm','notes','invitation_sent'
             ]);
-            foreach (['lastname','email','phone','notes','location'] as $k) {
+            foreach (['lastname','email','phone','notes'] as $k) {
                 if (array_key_exists($k, $updateData) && $updateData[$k] === '') {
                     $updateData[$k] = null;
                 }
@@ -259,7 +262,7 @@ class GuestController extends Controller
         $sort          = $request->input('sort', 'lastname');
         $order         = strtolower($request->input('order', 'asc')) === 'desc' ? 'desc' : 'asc';
 
-        $query = Guest::with('companion');
+        $query = Guest::with(['companion', 'eventTable']);
 
         if ($q) {
             $query->where(function ($qb) use ($q) {
@@ -295,10 +298,12 @@ class GuestController extends Controller
             $sort = 'lastname';
         }
         
-        // Order by location (mesa) first, then by lastname, then by name
-        $query->orderBy('location', 'asc')
-              ->orderBy('name', 'asc')
-              ->orderBy('lastname', 'asc');
+        // Order by event table, then by lastname, then by name
+        $query->leftJoin('event_tables', 'guests.event_table_id', '=', 'event_tables.id')
+              ->orderBy('event_tables.name', 'asc')
+              ->orderBy('guests.name', 'asc')
+              ->orderBy('guests.lastname', 'asc')
+              ->select('guests.*');
 
         $filename = 'guests-' . date('Ymd-His') . '.xlsx';
 
@@ -331,7 +336,7 @@ class GuestController extends Controller
                             $g->confirm,
                             optional($g->companion)->name,
                             optional($g->companion)->lastname,
-                            $g->location,
+                            $g->eventTable ? $g->eventTable->name : null,
                             $g->notes,
                             $g->message,
                             $g->token,

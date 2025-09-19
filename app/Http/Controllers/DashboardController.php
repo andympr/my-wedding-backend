@@ -45,14 +45,14 @@ class DashboardController extends Controller
 
         // Indicator 6: Table assignments
         $guestsWithTable = $guests->filter(function ($guest) {
-            return !is_null($guest->location) && $guest->location !== '';
+            return !is_null($guest->event_table_id);
         });
         $totalGuestsWithTable = $guestsWithTable->count();
         $companionsWithTable = $guestsWithTable->where('enable_companion', true)->count();
         $totalAttendeesWithTable = $totalGuestsWithTable + $companionsWithTable;
 
         $guestsWithoutTable = $guests->filter(function ($guest) {
-            return is_null($guest->location) || $guest->location === '';
+            return is_null($guest->event_table_id);
         });
         $totalGuestsWithoutTable = $guestsWithoutTable->count();
         $companionsWithoutTable = $guestsWithoutTable->where('enable_companion', true)->count();
